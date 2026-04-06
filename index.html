@@ -1,0 +1,183 @@
+﻿<!doctype html>
+<html lang="pt-PT">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GoF Studio - Padrões de Design com Java e UML</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="bg-layer" aria-hidden="true">
+    <div class="blob blob-a"></div>
+    <div class="blob blob-b"></div>
+    <div class="blob blob-c"></div>
+  </div>
+
+  <div class="app-shell">
+    <aside class="sidebar">
+      <header class="brand-panel">
+        <p class="eyebrow">GoF Studio</p>
+        <h1>Padrões de Design com Java + UML</h1>
+        <p>Tutorial visual e interativo para dominar os 23 padrões GoF com foco em arquitetura limpa.</p>
+      </header>
+
+      <section class="controls-panel" aria-label="Filtros">
+        <label for="searchInput">Pesquisar padrão</label>
+        <input id="searchInput" type="search" placeholder="Ex: Strategy, Observer, Factory...">
+
+        <div class="category-filters" role="group" aria-label="Categorias">
+          <button class="filter-btn active" type="button" data-category="all">Todos</button>
+          <button class="filter-btn" type="button" data-category="creational">Criacionais</button>
+          <button class="filter-btn" type="button" data-category="structural">Estruturais</button>
+          <button class="filter-btn" type="button" data-category="behavioral">Comportamentais</button>
+        </div>
+
+        <div class="progress-card">
+          <p class="progress-title">Progresso de Estudo</p>
+          <p id="progressText">0 de 23 concluídos</p>
+          <div class="progress-track" aria-hidden="true">
+            <div id="progressFill" class="progress-fill"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="list-panel" aria-label="Lista de padrões">
+        <ul id="patternList"></ul>
+      </section>
+    </aside>
+
+    <main class="content">
+      <section class="hero-card">
+        <div>
+          <p class="eyebrow">Aprendizagem orientada a arquitetura</p>
+          <h2>Constrói pensamento de engenharia, não só memorização</h2>
+          <p>Seleciona um padrão para ver intenção, diagrama UML, trade-offs e implementação Java pronta para estudar.</p>
+        </div>
+        <div class="hero-stats">
+          <article>
+            <p>Total</p>
+            <strong>23</strong>
+            <span>Padrões GoF</span>
+          </article>
+          <article>
+            <p>Em foco</p>
+            <strong id="statCategoryCount">23</strong>
+            <span>No filtro atual</span>
+          </article>
+          <article>
+            <p>Concluídos</p>
+            <strong id="statCompleted">0</strong>
+            <span>Com histórico local</span>
+          </article>
+        </div>
+      </section>
+
+      <section class="path-card">
+        <h3>Rota recomendada de estudo</h3>
+        <div class="path-grid">
+          <article>
+            <p class="step">1</p>
+            <h4>Criacionais</h4>
+            <p>Aprende encapsulamento de criação de objetos e controlo de instância.</p>
+          </article>
+          <article>
+            <p class="step">2</p>
+            <h4>Estruturais</h4>
+            <p>Modela colaboração entre classes e composição flexível de responsabilidades.</p>
+          </article>
+          <article>
+            <p class="step">3</p>
+            <h4>Comportamentais</h4>
+            <p>Define algoritmos, fluxos e comunicação entre objetos com baixo acoplamento.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="pattern-card" aria-live="polite">
+        <header class="pattern-header">
+          <div>
+            <p id="patternCategoryLabel" class="eyebrow">Categoria</p>
+            <h3 id="patternTitle">Padrão</h3>
+            <p id="patternTagline">Resumo</p>
+          </div>
+          <div class="header-actions">
+            <label class="checkline" for="markComplete">
+              <input id="markComplete" type="checkbox">
+              Marcar como estudado
+            </label>
+            <button id="copyCodeBtn" type="button">Copiar Java</button>
+          </div>
+        </header>
+
+        <div class="detail-grid">
+          <article class="panel intent-panel">
+            <h4>Intenção</h4>
+            <p id="patternIntent"></p>
+            <h4>Quando usar</h4>
+            <ul id="whenToUseList"></ul>
+          </article>
+
+          <article class="panel tradeoffs-panel">
+            <h4>Vantagens</h4>
+            <ul id="benefitsList"></ul>
+            <h4>Trade-offs</h4>
+            <ul id="tradeoffsList"></ul>
+          </article>
+
+          <article class="panel code-panel">
+            <h4>Exemplo Java</h4>
+            <pre><code id="javaCode" class="language-java"></code></pre>
+          </article>
+
+          <article class="panel uml-panel">
+            <h4>Diagrama UML</h4>
+            <div id="umlContainer" class="uml-container"></div>
+          </article>
+
+          <article class="panel mapping-panel">
+            <div class="mapping-header">
+              <h4>Conformidade UML <-> Java</h4>
+              <p id="rigorBadge" class="rigor-badge">Validação pendente</p>
+            </div>
+            <div class="mapping-table-wrap">
+              <table class="mapping-table">
+                <thead>
+                  <tr>
+                    <th scope="col">Elemento UML</th>
+                    <th scope="col">Elemento Java</th>
+                    <th scope="col">Estado</th>
+                    <th scope="col">Justificação</th>
+                  </tr>
+                </thead>
+                <tbody id="mappingTableBody"></tbody>
+              </table>
+            </div>
+          </article>
+        </div>
+
+        <footer class="pattern-footer">
+          <button id="prevBtn" type="button">Anterior</button>
+          <button id="nextBtn" type="button">Seguinte</button>
+        </footer>
+      </section>
+
+      <section class="quiz-card">
+        <header>
+          <p class="eyebrow">Treino rápido</p>
+          <h3>Mini Quiz</h3>
+        </header>
+        <p id="quizQuestion">Pergunta</p>
+        <div id="quizOptions" class="quiz-options"></div>
+        <p id="quizFeedback" class="quiz-feedback"></p>
+        <button id="newQuizBtn" type="button">Nova pergunta</button>
+      </section>
+    </main>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
