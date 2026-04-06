@@ -1461,12 +1461,14 @@ const UML_JAVA_MAP = {
 };
 
 const STORAGE_KEY = "gof-studio-completed-v1";
+const SEEN_STORAGE_KEY = "gof-studio-seen-v1";
 
 const state = {
   selectedCategory: "all",
   search: "",
   selectedPatternId: patterns[0].id,
   completed: new Set(),
+  seen: new Set(),
   currentQuiz: null
 };
 
@@ -1673,6 +1675,7 @@ function renderPatternDetail() {
 
   const pattern = getSelectedPattern();
   if (!pattern) return;
+  markPatternSeen(pattern.id);
 
   elements.patternCategoryLabel.textContent = CATEGORY_LABELS[pattern.category];
   elements.patternTitle.textContent = pattern.name;
@@ -1691,6 +1694,7 @@ function renderPatternDetail() {
   elements.patternTitle.classList.remove("fade-in");
   elements.patternTitle.offsetWidth;
   elements.patternTitle.classList.add("fade-in");
+  renderQuizIfNeeded();
 }
 
 function setDetailPlaceholder() {
@@ -1824,14 +1828,26 @@ function escapeHtml(value) {
 function loadProgress() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return;
-
-    const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed)) {
-      state.completed = new Set(parsed.filter((id) => patterns.some((pattern) => pattern.id === id)));
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        state.completed = new Set(parsed.filter((id) => patterns.some((pattern) => pattern.id === id)));
+      }
     }
   } catch {
     state.completed = new Set();
+  }
+
+  try {
+    const seenRaw = localStorage.getItem(SEEN_STORAGE_KEY);
+    if (seenRaw) {
+      const parsedSeen = JSON.parse(seenRaw);
+      if (Array.isArray(parsedSeen)) {
+        state.seen = new Set(parsedSeen.filter((id) => patterns.some((pattern) => pattern.id === id)));
+      }
+    }
+  } catch {
+    state.seen = new Set();
   }
 }
 
@@ -1839,56 +1855,204 @@ function saveProgress() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify([...state.completed]));
 }
 
+function saveSeen() {
+  localStorage.setItem(SEEN_STORAGE_KEY, JSON.stringify([...state.seen]));
+}
+
+function markPatternSeen(patternId) {
+  if (!patternId || state.seen.has(patternId)) return;
+  state.seen.add(patternId);
+  saveSeen();
+}
+
 function renderQuizIfNeeded() {
-  if (!state.currentQuiz) {
+  const selected = getSelectedPattern();
+  if (!selected) return;
+
+  if (!state.currentQuiz || state.currentQuiz.patternId !== selected.id) {
     buildQuiz();
   }
 }
 
 function buildQuiz() {
-  const filtered = getFilteredPatterns();
-  const available = filtered.length >= 4 ? filtered : patterns;
+  const selected = getSelectedPattern();
+  if (!selected) return;
 
-  const correct = available[Math.floor(Math.random() * available.length)];
-  const distractors = shuffle(patterns.filter((pattern) => pattern.id !== correct.id)).slice(0, 3);
-  const options = shuffle([correct, ...distractors]);
+  markPatternSeen(selected.id);
+  const studiedIds = new Set([...state.completed, selected.id]);
+  const studiedPatterns = patterns.filter((pattern) => studiedIds.has(pattern.id));
+  const otherStudied = studiedPatterns.filter((pattern) => pattern.id !== selected.id);
+
+  if (otherStudied.length >= 3) {
+    buildComparativeQuiz(selected, otherStudied);
+    return;
+  }
+
+  buildFocusedQuiz(selected, otherStudied);
+}
+
+function buildComparativeQuiz(selected, otherStudied) {
+  const distractors = shuffle(otherStudied).slice(0, 3);
+  const cluePool = [...selected.whenToUse, selected.intent];
+  const clue = cluePool[Math.floor(Math.random() * cluePool.length)];
+  const options = shuffle([selected, ...distractors]).map((pattern) => ({
+    value: pattern.id,
+    label: pattern.name
+  }));
 
   state.currentQuiz = {
-    correctId: correct.id,
-    options: options.map((option) => option.id)
+    patternId: selected.id,
+    mode: "comparative",
+    correctValue: selected.id,
+    explanation: `${selected.name} é o melhor encaixe porque ${selected.intent.toLowerCase()}.`
   };
 
-  elements.quizQuestion.textContent = `Qual padrão encaixa melhor nesta intenção: "${correct.intent}"`;
+  elements.quizQuestion.textContent = `Num cenário em que ${lowerFirst(clue)}, que padrão escolherias?`;
+  renderQuizOptions(options);
+}
+
+function buildFocusedQuiz(selected, otherStudied) {
+  const quizTypes = ["intent", "category", "tradeoff", "usage"];
+  const type = quizTypes[Math.floor(Math.random() * quizTypes.length)];
+  const fallbackDistractors = [
+    "Porque queres aumentar o acoplamento entre módulos.",
+    "Porque queres evitar encapsular comportamentos.",
+    "Porque pretendes remover qualquer tipo de abstração.",
+    "Porque preferes condicional rígido em vez de composição."
+  ];
+
+  let question = "";
+  let correctLabel = "";
+  let distractors = [];
+  let explanation = "";
+
+  if (type === "category") {
+    const categories = Object.entries(CATEGORY_LABELS).map(([value, label]) => ({ value, label }));
+    const options = shuffle(categories).map((item) => ({
+      value: item.value,
+      label: item.label
+    }));
+
+    state.currentQuiz = {
+      patternId: selected.id,
+      mode: "focused-category",
+      correctValue: selected.category,
+      explanation: `${selected.name} pertence à categoria ${CATEGORY_LABELS[selected.category]}.`
+    };
+
+    elements.quizQuestion.textContent = `Em termos GoF, a que família pertence o padrão ${selected.name}?`;
+    renderQuizOptions(options);
+    return;
+  }
+
+  if (type === "intent") {
+    question = `Qual frase descreve melhor a intenção central de ${selected.name}?`;
+    correctLabel = selected.intent;
+    distractors = [
+      ...otherStudied.map((pattern) => pattern.intent),
+      ...selected.whenToUse,
+      ...selected.benefits,
+      ...selected.tradeoffs
+    ];
+    explanation = `A intenção central de ${selected.name} é: ${selected.intent}`;
+  } else if (type === "tradeoff") {
+    const tradeoff = selected.tradeoffs[Math.floor(Math.random() * selected.tradeoffs.length)];
+    question = `Qual é um trade-off real ao aplicar ${selected.name}?`;
+    correctLabel = tradeoff;
+    distractors = [
+      ...selected.benefits,
+      ...otherStudied.flatMap((pattern) => pattern.benefits),
+      ...otherStudied.flatMap((pattern) => pattern.whenToUse),
+      ...fallbackDistractors
+    ];
+    explanation = `Trade-off típico de ${selected.name}: ${tradeoff}`;
+  } else {
+    const usage = selected.whenToUse[Math.floor(Math.random() * selected.whenToUse.length)];
+    question = `Em que situação ${selected.name} é mais apropriado?`;
+    correctLabel = usage;
+    distractors = [
+      ...otherStudied.flatMap((pattern) => pattern.whenToUse),
+      ...selected.benefits,
+      ...selected.tradeoffs,
+      ...fallbackDistractors
+    ];
+    explanation = `Situação recomendada para ${selected.name}: ${usage}`;
+  }
+
+  const uniqueDistractors = uniqueStrings(distractors).filter((item) => item !== correctLabel);
+  const optionLabels = shuffle([correctLabel, ...uniqueDistractors.slice(0, 3)]);
+  while (optionLabels.length < 4) {
+    const extra = fallbackDistractors.find((item) => !optionLabels.includes(item));
+    if (!extra) break;
+    optionLabels.push(extra);
+  }
+
+  const options = optionLabels.map((label, index) => ({
+    value: `opt-${index}`,
+    label
+  }));
+  const correctOption = options.find((option) => option.label === correctLabel);
+
+  state.currentQuiz = {
+    patternId: selected.id,
+    mode: `focused-${type}`,
+    correctValue: correctOption ? correctOption.value : options[0].value,
+    explanation
+  };
+
+  elements.quizQuestion.textContent = question;
+  renderQuizOptions(options);
+}
+
+function renderQuizOptions(options) {
   elements.quizFeedback.textContent = "";
   elements.quizOptions.innerHTML = options
-    .map((option) => `<button class="quiz-option" type="button" data-id="${option.id}">${option.name}</button>`)
+    .map((option) => `<button class="quiz-option" type="button" data-value="${option.value}">${escapeHtml(option.label)}</button>`)
     .join("");
 
   elements.quizOptions.querySelectorAll(".quiz-option").forEach((button) => {
-    button.addEventListener("click", () => handleQuizAnswer(button.dataset.id));
+    button.addEventListener("click", () => handleQuizAnswer(button.dataset.value));
   });
 }
 
-function handleQuizAnswer(answerId) {
+function handleQuizAnswer(answerValue) {
   if (!state.currentQuiz) return;
 
-  const correctId = state.currentQuiz.correctId;
-  const isCorrect = answerId === correctId;
+  const correctValue = state.currentQuiz.correctValue;
+  const isCorrect = answerValue === correctValue;
 
   elements.quizOptions.querySelectorAll(".quiz-option").forEach((button) => {
-    const id = button.dataset.id;
+    const value = button.dataset.value;
     button.disabled = true;
-    if (id === correctId) {
+    if (value === correctValue) {
       button.classList.add("correct");
-    } else if (id === answerId) {
+    } else if (value === answerValue) {
       button.classList.add("wrong");
     }
   });
 
-  const correctPattern = patterns.find((pattern) => pattern.id === correctId);
   elements.quizFeedback.textContent = isCorrect
-    ? `Correto. ${correctPattern.name} foi bem identificado.`
-    : `Resposta incorreta. A opcao certa era ${correctPattern.name}.`;
+    ? `Correto. ${state.currentQuiz.explanation}`
+    : `Quase. ${state.currentQuiz.explanation}`;
+}
+
+function lowerFirst(text) {
+  if (!text) return "";
+  return text.charAt(0).toLowerCase() + text.slice(1);
+}
+
+function uniqueStrings(items) {
+  const result = [];
+  const seen = new Set();
+
+  items.forEach((item) => {
+    const normalized = String(item || "").trim();
+    if (!normalized || seen.has(normalized)) return;
+    seen.add(normalized);
+    result.push(normalized);
+  });
+
+  return result;
 }
 
 function shuffle(items) {
